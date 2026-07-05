@@ -7,6 +7,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // 允许跨域（开发阶段开放所有来源，生产环境应限制域名）
+  app.enableCors();
+
   // 全局路径前缀
   app.setGlobalPrefix('v1');
 
