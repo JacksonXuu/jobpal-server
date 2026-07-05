@@ -31,16 +31,18 @@ Thumbs.db
 *.swo
 
 # IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+.vscode/
 
 # Environment
 .env
 .env.local
 .env.*.local
+
+# SQLite
+prisma/dev.db
+
+# pnpm
+pnpm-workspace.yaml
 
 # Docker
 docker-compose.override.yml
