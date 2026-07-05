@@ -45,14 +45,19 @@ export class AuthService {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
+    // 检查账号是否被禁用
+    if (user.status === 'disabled') {
+      throw new UnauthorizedException('账号已被禁用');
+    }
+
     // 验密码
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    // 签发 JWT
-    const payload = { sub: user.id, username: user.username };
+    // 签发 JWT（包含角色信息）
+    const payload = { sub: user.id, username: user.username, role: user.role };
     const access_token = this.jwtService.sign(payload);
 
     return {
@@ -60,6 +65,7 @@ export class AuthService {
       user: {
         id: user.id,
         username: user.username,
+        role: user.role,
       },
     };
   }
