@@ -18,14 +18,16 @@ model User {
   jobPositions  JobPosition[]
   resumes       Resume[]
   conversations Conversation[]
+  optimizations ResumeOptimization[]
 
   @@map("users")
 }
 
 model JobPosition {
-  id               String   @id @default(cuid())
+  id               String                 @id @default(cuid())
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optimizations    ResumeOptimization[]
   jobName          String                                          // 岗位名称（必填）
   companyName      String                                          // 公司名称（必填）
   salary           Float                                           // 薪资（k），1-100，1位小数（必填）
@@ -45,9 +47,10 @@ model JobPosition {
 }
 
 model Resume {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String                 @id @default(cuid())
+  userId        String
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optimizations ResumeOptimization[]
   title       String                                          // 简历标题（必填）
   content     String   @db.Text                               // 简历文本内容，Markdown 格式（必填）
   description String?  @db.Text                               // 备注/描述（可选）
@@ -85,4 +88,22 @@ model ChatMessage {
 
   @@index([conversationId])
   @@map("chat_messages")
+}
+
+model ResumeOptimization {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId      String
+  resume        Resume      @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  jobPositionId String
+  jobPosition   JobPosition @relation(fields: [jobPositionId], references: [id])
+  originalText  String      @db.Text    // 优化前的简历文本（快照）
+  optimizedText String?     @db.Text    // 优化后（流式完成后写入）
+  embedding     String?     @db.Text    // 优化结果的 Embedding JSON
+  tokensUsed    Int?                    // 消耗 token 数
+  createdAt     DateTime    @default(now())
+
+  @@index([userId])
+  @@map("resume_optimizations")
 }
