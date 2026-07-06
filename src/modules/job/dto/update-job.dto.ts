@@ -46,4 +46,8 @@ export class UpdateJobDto {
   })
   @IsOptional()
   status?: string;
+
+  @IsString()
+  @IsOptional()
+  remark?: string;
 }

@@ -34,6 +34,7 @@ model JobPosition {
   rating           Int      @default(3)                            // 心动等级 1-5
   sourcePlatform   String   @default("招聘平台")                    // 招聘平台 | 朋友推荐 | 官网
   status           String   @default("待投递")                      // 待投递/已投递/待面试/面试中/面试结果待反馈/面试通过/面试失败/已归档
+  remark           String?  @db.Text                               // 面试备注（用户自填）
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

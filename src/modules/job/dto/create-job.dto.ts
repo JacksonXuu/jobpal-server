@@ -43,4 +43,8 @@ export class CreateJobDto {
   })
   @IsOptional()
   status?: string;
+
+  @IsString()
+  @IsOptional()
+  remark?: string;
 }
