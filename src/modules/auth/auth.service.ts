@@ -69,4 +69,14 @@ export class AuthService {
       },
     };
   }
+
+  // 注销账号
+  async deleteAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { message: '账号已注销' };
+  }
 }

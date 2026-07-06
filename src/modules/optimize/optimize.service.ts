@@ -5,7 +5,6 @@ import { OptimizeDto } from './dto/optimize.dto';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
 import { StringOutputParser } from '@langchain/core/output_parsers';
-import type { Response } from 'express';
 
 const SYSTEM_PROMPT = `你是一位资深简历优化专家。你的任务是根据目标岗位的要求，对用户的简历进行专项优化。
 
@@ -57,6 +56,7 @@ export class OptimizeService {
           id: true,
           resume: { select: { title: true } },
           jobPosition: { select: { jobName: true, companyName: true } },
+          optimizedText: true,
           tokensUsed: true,
           createdAt: true,
         },
@@ -64,7 +64,14 @@ export class OptimizeService {
       }),
       this.prisma.resumeOptimization.count({ where }),
     ]);
-    return { list, total };
+    // 标记完成状态
+    return {
+      list: list.map((item) => ({
+        ...item,
+        status: item.optimizedText ? 'completed' : 'generating',
+      })),
+      total,
+    };
   }
 
   // 优化详情
@@ -77,11 +84,14 @@ export class OptimizeService {
       },
     });
     if (!record) throw new NotFoundException('优化记录不存在');
-    return record;
+    return {
+      ...record,
+      status: record.optimizedText ? 'completed' : 'generating',
+    };
   }
 
-  // 流式优化
-  async optimize(dto: OptimizeDto, userId: string, res: Response) {
+  // 创建优化任务，立即返回，后台生成
+  async optimize(dto: OptimizeDto, userId: string) {
     // 1. 查简历和岗位
     const [resume, job] = await Promise.all([
       this.prisma.resume.findFirst({ where: { id: dto.resumeId, userId } }),
@@ -90,7 +100,7 @@ export class OptimizeService {
     if (!resume) throw new NotFoundException('简历不存在');
     if (!job) throw new NotFoundException('岗位不存在');
 
-    // 2. 创建优化记录
+    // 2. 创建记录（状态：生成中）
     const record = await this.prisma.resumeOptimization.create({
       data: {
         userId,
@@ -103,35 +113,45 @@ export class OptimizeService {
     // 3. RAG 检索历史范例
     const ragContext = await this.buildRagContext(job, userId);
 
-    // 4. SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
+    // 4. 后台异步生成（不阻塞响应）
+    this.generateInBackground(record.id, resume.content, job, ragContext);
 
-    this.sendSSE(res, 'start', { recordId: record.id });
+    // 5. 立即返回记录 ID
+    return { recordId: record.id, status: 'generating' };
+  }
 
-    // 5. 构建 LangChain 链
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', SYSTEM_PROMPT],
-      ['user', USER_PROMPT],
-    ]);
-
-    const llm = new ChatOpenAI({
-      modelName: this.configService.get<string>('dashscope.model', 'qwen-plus'),
-      temperature: 0.7,
-      streaming: true,
-      configuration: {
-        baseURL: this.configService.get<string>('dashscope.baseURL'),
-        apiKey: this.configService.get<string>('dashscope.apiKey'),
-      },
-    });
-
-    const chain = prompt.pipe(llm).pipe(new StringOutputParser());
-
-    let fullContent = '';
+  // 后台生成
+  private async generateInBackground(
+    recordId: string,
+    resumeContent: string,
+    job: {
+      jobName: string;
+      companyName: string;
+      salary: number;
+      requirements?: string | null;
+      responsibilities?: string | null;
+      attractiveness?: string | null;
+    },
+    ragContext: string,
+  ) {
     try {
-      const stream = await chain.stream({
+      const prompt = ChatPromptTemplate.fromMessages([
+        ['system', SYSTEM_PROMPT],
+        ['user', USER_PROMPT],
+      ]);
+
+      const llm = new ChatOpenAI({
+        modelName: this.configService.get<string>('dashscope.model', 'qwen-plus'),
+        temperature: 0.7,
+        configuration: {
+          baseURL: this.configService.get<string>('dashscope.baseURL'),
+          apiKey: this.configService.get<string>('dashscope.apiKey'),
+        },
+      });
+
+      const chain = prompt.pipe(llm).pipe(new StringOutputParser());
+
+      const result = await chain.invoke({
         ragContext: ragContext || '暂无历史优化记录',
         jobName: job.jobName,
         companyName: job.companyName,
@@ -139,36 +159,25 @@ export class OptimizeService {
         requirements: job.requirements || '未填写',
         responsibilities: job.responsibilities || '未填写',
         attractiveness: job.attractiveness || '未填写',
-        resumeContent: resume.content,
+        resumeContent,
       });
 
-      for await (const chunk of stream) {
-        fullContent += chunk;
-        this.sendSSE(res, 'token', { token: chunk });
-      }
+      // 嵌入向量
+      const embedding = await this.embedText(result);
 
-      // 6. 保存结果 + 嵌入
-      const embedding = await this.embedText(fullContent);
       await this.prisma.resumeOptimization.update({
-        where: { id: record.id },
+        where: { id: recordId },
         data: {
-          optimizedText: fullContent,
+          optimizedText: result,
           embedding: embedding ? JSON.stringify(embedding) : null,
         },
       });
-
-      this.sendSSE(res, 'complete', { recordId: record.id });
-    } catch (error) {
-      if (fullContent) {
-        await this.prisma.resumeOptimization.update({
-          where: { id: record.id },
-          data: { optimizedText: fullContent + '\n\n[生成中断]' },
-        });
-      }
-      this.sendSSE(res, 'error', { message: 'AI 服务异常，请稍后重试' });
+    } catch {
+      await this.prisma.resumeOptimization.update({
+        where: { id: recordId },
+        data: { optimizedText: '[生成失败，请重试]' },
+      });
     }
-
-    res.end();
   }
 
   // RAG：检索历史优化范例
@@ -177,7 +186,7 @@ export class OptimizeService {
     userId: string,
   ) {
     const pastRecords = await this.prisma.resumeOptimization.findMany({
-      where: { userId, embedding: { not: null } },
+      where: { userId, embedding: { not: null }, optimizedText: { not: null } },
       select: { optimizedText: true, embedding: true },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -208,7 +217,6 @@ export class OptimizeService {
     }
   }
 
-  // Embedding API
   private async embed(text: string, apiKey: string, baseURL: string): Promise<number[]> {
     const res = await fetch(`${baseURL}/embeddings`, {
       method: 'POST',
@@ -238,9 +246,5 @@ export class OptimizeService {
       nb += b[i] * b[i];
     }
     return na === 0 || nb === 0 ? 0 : dot / (Math.sqrt(na) * Math.sqrt(nb));
-  }
-
-  private sendSSE(res: Response, event: string, data: Record<string, unknown>) {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 }
