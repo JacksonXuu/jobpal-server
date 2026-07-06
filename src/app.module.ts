@@ -9,6 +9,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { JobModule } from './modules/job/job.module';
 import { ResumeModule } from './modules/resume/resume.module';
 import { HomeModule } from './modules/home/home.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import configuration from './config/configuration';
 
@@ -24,6 +25,7 @@ import configuration from './config/configuration';
     JobModule,
     ResumeModule,
     HomeModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

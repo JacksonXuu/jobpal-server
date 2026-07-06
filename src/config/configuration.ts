@@ -7,4 +7,9 @@ export default () => ({
     secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
+  dashscope: {
+    apiKey: process.env.DASHSCOPE_API_KEY,
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: process.env.DASHSCOPE_MODEL || 'qwen-plus',
+  },
 });
