@@ -189,7 +189,7 @@ export class ChatService {
     res.end();
   }
 
-  // RAG：收集用户资产，做简单检索
+  // RAG：向量检索用户资产
   private async buildRagContext(question: string, userId: string) {
     // 收集资产
     const [resumes, jobs] = await Promise.all([
@@ -230,8 +230,91 @@ export class ChatService {
       documents.push(parts.join('\n'));
     }
 
-    // 简单关键词匹配检索（不做 embedding，数据量小够用）
-    // 未来可替换为向量检索
+    // 嵌入 + 语义检索
+    const topDocs = await this.semanticSearch(question, documents);
+
+    // 额外补充：全部岗位的状态汇总（确保 LLM 知道全局分布）
+    const statusSummary = jobs.length > 0
+      ? jobs.map((j) => `- [${j.status}] ${j.jobName} - ${j.companyName}`).join('\n')
+      : '暂无岗位';
+
+    const ragContext = [
+      '## 全量岗位状态汇总',
+      statusSummary,
+      '',
+      '## 语义检索到的相关内容（Top-' + Math.min(5, topDocs.length) + '）',
+      ...topDocs,
+    ].join('\n');
+
+    return { resumeCount, jobCount, interviewCount, ragContext };
+  }
+
+  // 语义向量检索
+  private async semanticSearch(question: string, documents: string[]) {
+    if (documents.length === 0) return [];
+
+    try {
+      const apiKey = this.configService.get<string>('dashscope.apiKey');
+      const baseURL = this.configService.get<string>('dashscope.baseURL');
+
+      // 获取 question 的 embedding
+      const qEmbed = await this.embed(question, apiKey!, baseURL!);
+
+      // 获取所有 documents 的 embeddings（批量）
+      const dEmbeds = await this.embedMany(documents, apiKey!, baseURL!);
+
+      // 计算余弦相似度
+      const scored = dEmbeds.map((emb, i) => ({
+        doc: documents[i],
+        score: this.cosineSim(qEmbed, emb),
+      }));
+
+      scored.sort((a, b) => b.score - a.score);
+      return scored.slice(0, 5).map((s) => s.doc);
+    } catch {
+      // embedding 失败时降级为关键词匹配
+      return this.keywordSearch(question, documents).slice(0, 5);
+    }
+  }
+
+  // 调用百炼 Embedding API（单条）
+  private async embed(text: string, apiKey: string, baseURL: string): Promise<number[]> {
+    const url = `${baseURL}/embeddings`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'text-embedding-v1', input: [text] }),
+    });
+    const json: any = await res.json();
+    return json.data?.[0]?.embedding ?? [];
+  }
+
+  // 调用百炼 Embedding API（批量）
+  private async embedMany(texts: string[], apiKey: string, baseURL: string): Promise<number[][]> {
+    const url = `${baseURL}/embeddings`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'text-embedding-v1', input: texts }),
+    });
+    const json: any = await res.json();
+    return (json.data ?? []).map((d: any) => d.embedding ?? []);
+  }
+
+  // 余弦相似度
+  private cosineSim(a: number[], b: number[]): number {
+    if (a.length === 0 || b.length === 0) return 0;
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    return na === 0 || nb === 0 ? 0 : dot / (Math.sqrt(na) * Math.sqrt(nb));
+  }
+
+  // 降级：关键词匹配
+  private keywordSearch(question: string, documents: string[]): string[] {
     const keywords = question.split(/[\s,，。？?！!]+/).filter((k) => k.length > 1);
     const scored = documents.map((doc) => {
       let score = 0;
@@ -240,19 +323,8 @@ export class ChatService {
       }
       return { doc, score };
     });
-
     scored.sort((a, b) => b.score - a.score);
-    const topDocs = scored
-      .filter((s) => s.score > 0)
-      .slice(0, 5)
-      .map((s) => s.doc);
-
-    return {
-      resumeCount,
-      jobCount,
-      interviewCount,
-      ragContext: topDocs.length > 0 ? topDocs.join('\n\n---\n\n') : '',
-    };
+    return scored.filter((s) => s.score > 0).map((s) => s.doc);
   }
 
   // 写入 SSE 事件
