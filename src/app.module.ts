@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { JobModule } from './modules/job/job.module';
+import { ResumeModule } from './modules/resume/resume.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import configuration from './config/configuration';
 
@@ -20,6 +21,7 @@ import configuration from './config/configuration';
     AuthModule,
     AdminModule,
     JobModule,
+    ResumeModule,
   ],
   controllers: [AppController],
   providers: [
