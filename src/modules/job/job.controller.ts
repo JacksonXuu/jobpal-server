@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query } from '@nestjs/common';
 import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { QueryJobDto } from './dto/query-job.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -25,6 +26,16 @@ export class JobController {
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.jobService.findOne(id, user.id);
+  }
+
+  // 快捷更新状态
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateJobStatusDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.jobService.updateStatus(id, dto, user.id);
   }
 
   // 编辑岗位

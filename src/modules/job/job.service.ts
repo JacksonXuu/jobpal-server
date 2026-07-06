@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { QueryJobDto } from './dto/query-job.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 
 @Injectable()
 export class JobService {
@@ -59,6 +60,15 @@ export class JobService {
     return this.prisma.jobPosition.update({
       where: { id },
       data: dto,
+    });
+  }
+
+  // 快捷更新状态（含归属校验）
+  async updateStatus(id: string, dto: UpdateJobStatusDto, userId: string) {
+    await this.findOne(id, userId);
+    return this.prisma.jobPosition.update({
+      where: { id },
+      data: { status: dto.status },
     });
   }
 
