@@ -90,6 +90,14 @@ export class OptimizeService {
     };
   }
 
+  // 批量删除
+  async batchDelete(ids: string[], userId: string) {
+    const result = await this.prisma.resumeOptimization.deleteMany({
+      where: { id: { in: ids }, userId },
+    });
+    return { message: `已删除 ${result.count} 条记录` };
+  }
+
   // 创建优化任务，立即返回，后台生成
   async optimize(dto: OptimizeDto, userId: string) {
     // 1. 查简历和岗位
