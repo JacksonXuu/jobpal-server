@@ -8,13 +8,35 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
+  id           String        @id @default(cuid())
+  username     String        @unique
   passwordHash String
-  role         String   @default("user")
-  status       String   @default("active")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         String        @default("user")
+  status       String        @default("active")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  jobPositions JobPosition[]
 
   @@map("users")
+}
+
+model JobPosition {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobName          String                                          // 岗位名称（必填）
+  companyName      String                                          // 公司名称（必填）
+  salary           Float                                           // 薪资（k），1-100，1位小数（必填）
+  requirements     String?  @db.Text                               // 岗位要求
+  responsibilities String?  @db.Text                               // 岗位职责
+  attractiveness   String?  @db.Text                               // 岗位吸引力
+  rating           Int      @default(3)                            // 心动等级 1-5
+  sourcePlatform   String   @default("招聘平台")                    // 招聘平台 | 朋友推荐 | 官网
+  status           String   @default("待投递")                      // 待投递/已投递/待面试/面试中/面试结果待反馈/面试通过/面试失败/已归档
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("job_positions")
 }
