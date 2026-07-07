@@ -3,6 +3,7 @@ import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { UpdateJobStatusDto } from './dto/update-job-status.dto';
+import { BatchDeleteDto } from './dto/batch-delete.dto';
 import { QueryJobDto } from './dto/query-job.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -42,6 +43,12 @@ export class JobController {
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdateJobDto, @CurrentUser() user: { id: string }) {
     return this.jobService.update(id, dto, user.id);
+  }
+
+  // 批量删除岗位（必须在 :id 之前）
+  @Delete('batch')
+  batchDelete(@Body() dto: BatchDeleteDto, @CurrentUser() user: { id: string }) {
+    return this.jobService.batchDelete(dto.ids, user.id);
   }
 
   // 删除岗位

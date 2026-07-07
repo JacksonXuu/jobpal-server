@@ -97,7 +97,7 @@ model ResumeOptimization {
   resumeId      String
   resume        Resume      @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   jobPositionId String
-  jobPosition   JobPosition @relation(fields: [jobPositionId], references: [id])
+  jobPosition   JobPosition @relation(fields: [jobPositionId], references: [id], onDelete: Cascade)
   originalText  String      @db.Text    // 优化前的简历文本（快照）
   optimizedText String?     @db.Text    // 优化后（流式完成后写入）
   embedding     String?     @db.Text    // 优化结果的 Embedding JSON

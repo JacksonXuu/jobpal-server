@@ -72,6 +72,14 @@ export class JobService {
     });
   }
 
+  // 批量删除岗位
+  async batchDelete(ids: string[], userId: string) {
+    const result = await this.prisma.jobPosition.deleteMany({
+      where: { id: { in: ids }, userId },
+    });
+    return { message: `已删除 ${result.count} 条记录` };
+  }
+
   // 删除岗位（含归属校验）
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
