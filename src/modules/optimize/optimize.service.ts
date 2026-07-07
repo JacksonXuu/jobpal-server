@@ -181,10 +181,14 @@ export class OptimizeService {
         },
       });
     } catch {
-      await this.prisma.resumeOptimization.update({
-        where: { id: recordId },
-        data: { optimizedText: '[生成失败，请重试]' },
-      });
+      try {
+        await this.prisma.resumeOptimization.update({
+          where: { id: recordId },
+          data: { optimizedText: '[生成失败，请重试]' },
+        });
+      } catch {
+        // 记录可能已被删除，忽略更新失败
+      }
     }
   }
 

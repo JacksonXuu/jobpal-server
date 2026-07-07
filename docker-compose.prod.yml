@@ -34,13 +34,15 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen-plus}
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_started
     command: >
-      sh -c "npx prisma db push && npx tsx prisma/seed.ts && node dist/src/main"
+      sh -c "npx prisma@6 db push && npx tsx prisma/seed.ts && node dist/src/main"
 
 volumes:
   mysql_data:

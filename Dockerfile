@@ -2,20 +2,16 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# 先复制依赖文件，利用 Docker 缓存层
-COPY package.json package-lock.json* ./
+# pin pnpm 9 to avoid pnpm 10 strict build script behavior
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
-# 用 npm 安装（没有 pnpm 的构建限制问题）
-RUN npm install --legacy-peer-deps
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
 
-# 复制源码
-COPY . .
+COPY prisma ./prisma
+COPY dist ./dist
 
-# 生成 Prisma Client
-RUN npx prisma generate
-
-# 构建
-RUN npm run build
+RUN npx prisma@6 generate
 
 EXPOSE 3000
 
