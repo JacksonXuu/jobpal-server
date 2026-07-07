@@ -2,7 +2,7 @@ import { IsString, MinLength, MaxLength } from 'class-validator';
 
 export class RegisterDto {
   @IsString()
-  @MinLength(3, { message: '用户名至少3个字符' })
+  @MinLength(2, { message: '用户名至少2个字符' })
   @MaxLength(20, { message: '用户名最多20个字符' })
   username: string;
 
