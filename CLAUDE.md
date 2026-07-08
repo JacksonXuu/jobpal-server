@@ -354,9 +354,53 @@ jobpal-server/
 
 ## 部署
 
-### 脚本
-- `bash setup-ssh.sh` — 首次部署配置 SSH 密钥（一次性）
-- `bash deploy.sh` — 一键部署（编译 → scp 上传 dist/ → docker compose up -d --build server）
+### 部署原理
+
+本地 `pnpm run build` 将 TypeScript 源码编译为 `dist/`（JavaScript）。Dockerfile 只复制 `dist/` + `prisma/` + `package.json` 进镜像，**不需要 `src/`**（`.dockerignore` 已排除）。服务器是纯 JS 运行环境。
+
+### 初次部署 SOP
+
+服务器要求：Docker + Docker Compose 已安装。
+
+```bash
+# 1. 本地编译
+pnpm run build
+
+# 2. 上传 8 个必要文件到服务器（不上传 src/ node_modules/ .git/）
+ssh root@47.107.30.30 "mkdir -p ~/jobpal-server"
+scp -r dist/ package.json pnpm-lock.yaml prisma/ \
+        Dockerfile .dockerignore \
+        docker-compose.prod.yml \
+        root@47.107.30.30:~/jobpal-server/
+
+# 3. 上传环境变量（含密钥，不进 git）
+scp .env.production root@47.107.30.30:~/jobpal-server/
+
+# 4. 配置 SSH 免密登录（仅一次）
+bash setup-ssh.sh
+
+# 5. 启动所有容器
+ssh jobpal "cd ~/jobpal-server && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build"
+```
+
+首次启动自动执行：`prisma db push`（建表）→ `prisma seed`（创建 admin/admin123）→ `node dist/src/main`（启动服务）。
+
+### 后续更新 SOP
+
+```bash
+bash deploy.sh
+```
+
+脚本流程：本地编译 → scp 上传 `dist/` + `package.json` + `pnpm-lock.yaml` + `prisma/` → ssh 执行 `docker compose up -d --build server`（只重建 server 容器，MySQL/Redis 不受影响）。耗时约 2 分钟。
+
+### 更新场景分析
+
+| 变更内容 | 部署命令 | 说明 |
+|---------|---------|------|
+| 只改业务代码（*.ts） | `bash deploy.sh` | 只需上传 dist/ |
+| 新增/删除依赖 | `bash deploy.sh` | package.json 变化，Docker 会重新安装 |
+| 修改 Prisma schema | `bash deploy.sh` | prisma/ 变化，容器启动时自动 db push |
+| 修改环境变量 | 手工 scp .env.production + 重启 | .env 不进 deploy.sh 自动化 |
 
 ### 容器化
 - **Dockerfile**：node:22-alpine + pnpm 9，仅安装生产依赖，复制 dist + prisma，端口 3000

@@ -13,8 +13,8 @@
 - **注册 / 登录** — 用户名注册、JWT 登录认证、注销账号
 - **简历管理** — 在线编辑简历（Markdown 格式），支持多简历管理
 - **心动岗位** — 记录心仪岗位，支持增删改查、批量删除、状态流转、关键词过滤
-- **AI 简历优化 ⭐** — 面向特定岗位，AI 针对性优化简历（LangChain + RAG 增强）
-- **AI 问一问 ⭐** — AI 求职问答助手，支持对话式交互、语义检索用户数据（SSE 流式输出）
+- **AI 简历优化** — 面向特定岗位，AI 针对性优化简历（LangChain + RAG 增强）
+- **AI 问一问** — AI 求职问答助手，支持对话式交互、语义检索用户数据（SSE 流式输出）
 - **首页统计** — 简历数、岗位数、面试数等数据概览
 
 ### 管理端
@@ -359,32 +359,44 @@ Server → 保存消息到 DB
 
 ## 部署
 
-### 一键部署（推荐）
+### 初次部署
+
+服务器上需要 **Docker 运行环境**，共 8 个必要文件（源文件 `src/` 不需要上传）：
 
 ```bash
-# 首次部署：配置 SSH 密钥（仅一次，需要服务器 root 密码）
+# 1. 本地编译
+pnpm run build
+
+# 2. 上传必要文件到服务器（注意：不上传 src/ node_modules/ .git/）
+ssh root@47.107.30.30 "mkdir -p ~/jobpal-server"
+scp -r dist/ package.json pnpm-lock.yaml prisma/ \
+        Dockerfile .dockerignore \
+        docker-compose.prod.yml \
+        root@47.107.30.30:~/jobpal-server/
+
+# 3. 上传环境变量文件（含真实密钥，不进 git）
+scp .env.production root@47.107.30.30:~/jobpal-server/
+
+# 4. 配置 SSH 免密登录（仅一次）
 bash setup-ssh.sh
 
-# 之后每次部署
+# 5. 启动所有容器（MySQL + Redis + NestJS）
+ssh jobpal "cd ~/jobpal-server && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build"
+```
+
+> 首次启动会自动：拉取镜像 → 构建 NestJS → `prisma db push` 建表 → `prisma db seed` 创建 admin → 启动服务。
+
+### 后续更新代码
+
+每次改完业务代码，一条命令搞定：
+
+```bash
 bash deploy.sh
 ```
 
-部署脚本自动完成：编译 → 上传 dist/ → Docker 重建 server 容器 → 重启服务。
+脚本自动完成：本地编译 → 上传 `dist/` + `package.json` + `pnpm-lock.yaml` + `prisma/` → 服务器重建 server 容器（MySQL/Redis 不受影响）。
 
-### 手动部署
-
-```bash
-# 1. 本地构建
-pnpm run build
-
-# 2. 上传到服务器
-scp -r dist/ package.json pnpm-lock.yaml prisma/ root@<server-ip>:~/jobpal-server/
-
-# 3. SSH 登录服务器并重启
-ssh root@<server-ip>
-cd ~/jobpal-server
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build server
-```
+> **原理：** 本地 `pnpm run build` 把 TypeScript 源码编译为 `dist/`（JavaScript），服务器只跑 `dist/`，不需要 `src/`。这就是为什么源码变化只需要上传编译产物。
 
 ### 部署架构
 
