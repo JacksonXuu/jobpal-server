@@ -42,9 +42,13 @@ export class AnalyticsService {
     // 构建日期过滤条件
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
-    if (endDate) dateFilter.lte = new Date(endDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.lte = end;
+    }
 
-    const where: any = { userId };
+    const where: any = { userId, module: { not: 'home' } };
     if (Object.keys(dateFilter).length > 0) {
       where.createdAt = dateFilter;
     }
@@ -95,6 +99,7 @@ export class AnalyticsService {
            COUNT(DISTINCT userId) as count
          FROM analytics_events
          WHERE userId = ?
+           AND module != 'home'
            ${startDate ? 'AND createdAt >= ?' : ''}
            ${endDate ? 'AND createdAt <= ?' : ''}
          GROUP BY DATE(createdAt)
@@ -102,7 +107,7 @@ export class AnalyticsService {
          LIMIT 30`,
         userId,
         ...(startDate ? [new Date(startDate)] : []),
-        ...(endDate ? [new Date(endDate)] : []),
+        ...(endDate ? [new Date(new Date(endDate).setHours(23, 59, 59, 999))] : []),
       ),
     ]);
 

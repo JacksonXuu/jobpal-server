@@ -15,9 +15,13 @@ export class AdminService {
 
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
-    if (endDate) dateFilter.lte = new Date(endDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.lte = end;
+    }
 
-    const where: any = {};
+    const where: any = { module: { not: 'home' } };
     if (Object.keys(dateFilter).length > 0) {
       where.createdAt = dateFilter;
     }
@@ -82,13 +86,13 @@ export class AdminService {
            COUNT(*) as pv,
            COUNT(DISTINCT userId) as uv
          FROM analytics_events
-         WHERE 1=1
+         WHERE module != 'home'
            ${startDate ? 'AND createdAt >= ?' : ''}
            ${endDate ? 'AND createdAt <= ?' : ''}
          GROUP BY DATE(createdAt)
          ORDER BY date ASC`,
         ...(startDate ? [new Date(startDate)] : []),
-        ...(endDate ? [new Date(endDate)] : []),
+        ...(endDate ? [new Date(new Date(endDate).setHours(23, 59, 59, 999))] : []),
       ),
     ]);
 
