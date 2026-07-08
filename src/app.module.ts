@@ -11,6 +11,7 @@ import { ResumeModule } from './modules/resume/resume.module';
 import { HomeModule } from './modules/home/home.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { OptimizeModule } from './modules/optimize/optimize.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import configuration from './config/configuration';
 
@@ -28,6 +29,7 @@ import configuration from './config/configuration';
     HomeModule,
     ChatModule,
     OptimizeModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

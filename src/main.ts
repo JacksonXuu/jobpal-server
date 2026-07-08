@@ -7,8 +7,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // 允许跨域（开发阶段开放所有来源，生产环境应限制域名）
-  app.enableCors();
+  // 允许跨域：sendBeacon 会携带 credentials，
+  // 不能使用 * 通配符，必须反射请求 origin
+  app.enableCors({
+    origin: true,        // 反射请求的 Origin 头
+    credentials: true,   // 允许 credentials
+  });
 
   // 全局路径前缀
   app.setGlobalPrefix('v1');

@@ -18,7 +18,8 @@ model User {
   jobPositions  JobPosition[]
   resumes       Resume[]
   conversations Conversation[]
-  optimizations ResumeOptimization[]
+  optimizations  ResumeOptimization[]
+  analyticsEvents AnalyticsEvent[]
 
   @@map("users")
 }
@@ -106,4 +107,25 @@ model ResumeOptimization {
 
   @@index([userId])
   @@map("resume_optimizations")
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String
+  eventType String   // page_enter | page_leave | click | action | tab_switch
+  module    String
+  page      String
+  action    String?
+  duration  Int?     // 毫秒，仅 page_leave 时有值
+  platform  String   @default("h5")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, module])
+  @@index([userId, createdAt])
+  @@index([sessionId])
+  @@map("analytics_events")
 }
