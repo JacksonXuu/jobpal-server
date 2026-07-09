@@ -108,13 +108,38 @@ export class ChatService {
       data: { conversationId, role: 'user', content: dto.message },
     });
 
-    // 3. 设置 SSE headers
+    // 3. 每日限制检查：每个用户每天最多 3 个问题
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayCount = await this.prisma.chatMessage.count({
+      where: {
+        conversation: { userId },
+        role: 'user',
+        createdAt: { gte: today },
+      },
+    });
+    const limitReached = todayCount > 3;
+
+    // 4. 设置 SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    // 4. 收集用户资产 + RAG 检索
+    // 5. 每日限制：超出时直接返回提示，不调用 AI
+    if (limitReached) {
+      const tip = '您今日的提问次数已达上限（3次），请明天再来哦~';
+      const assistantMsg = await this.prisma.chatMessage.create({
+        data: { conversationId, role: 'assistant', content: tip },
+      });
+      this.sendSSE(res, 'start', { conversationId, messageId: assistantMsg.id });
+      this.sendSSE(res, 'token', { token: tip });
+      this.sendSSE(res, 'complete', { conversationId, messageId: assistantMsg.id });
+      res.end();
+      return;
+    }
+
+    // 6. 收集用户资产 + RAG 检索
     const { resumeCount, jobCount, interviewCount, ragContext } =
       await this.buildRagContext(dto.message, userId);
 
