@@ -30,13 +30,15 @@ ok "编译完成"
 log "Step 2/3: 上传文件到服务器..."
 scp -r dist/                     "$SSH_HOST:$SERVER_DIR/"
 scp    package.json pnpm-lock.yaml "$SSH_HOST:$SERVER_DIR/"
+scp    Dockerfile .dockerignore     "$SSH_HOST:$SERVER_DIR/"
+scp    docker-compose.prod.yml      "$SSH_HOST:$SERVER_DIR/"
 scp -r prisma/                   "$SSH_HOST:$SERVER_DIR/"
 ok "上传完成"
 
 # ── Step 3: 重启服务 ───────────────────────
 log "Step 3/3: 服务器重建容器并重启..."
 ssh "$SSH_HOST" \
-  "cd $SERVER_DIR && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build server"
+  "cd $SERVER_DIR && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build --force-recreate server"
 ok "容器重建完成"
 
 # ── 状态确认 ───────────────────────────────

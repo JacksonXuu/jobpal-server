@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -29,6 +29,7 @@ const SYSTEM_PROMPT = `你是 JobPal 求职助手的 AI 助手。你掌握用户
 
 @Injectable()
 export class ChatService {
+  private readonly logger = new Logger(ChatService.name);
   private llm: ChatOpenAI;
 
   constructor(
@@ -39,9 +40,9 @@ export class ChatService {
       modelName: this.configService.get<string>('dashscope.model', 'qwen-plus'),
       temperature: 0.7,
       streaming: true,
+      apiKey: this.configService.get<string>('dashscope.apiKey'),
       configuration: {
         baseURL: this.configService.get<string>('dashscope.baseURL'),
-        apiKey: this.configService.get<string>('dashscope.apiKey'),
       },
     });
   }
@@ -208,6 +209,10 @@ export class ChatService {
           data: { content: fullContent + '\n\n[生成中断]' },
         });
       }
+      this.logger.error(
+        `SSE 流式生成失败 (userId=${userId}, conversationId=${conversationId})`,
+        error instanceof Error ? error.stack : error,
+      );
       this.sendSSE(res, 'error', { message: 'AI 服务异常，请稍后重试' });
     }
 
@@ -386,30 +391,38 @@ export class ChatService {
 
 示例格式：["帮我分析目前的求职短板","接下来一周怎么安排面试？"]`;
 
-    const llm = new ChatOpenAI({
-      modelName: 'qwen-turbo',
-      temperature: 0.8,
-      configuration: {
-        baseURL: this.configService.get<string>('dashscope.baseURL'),
-        apiKey: this.configService.get<string>('dashscope.apiKey'),
-      },
-    });
-
-    const response = await llm.invoke(prompt);
-    const text = typeof response.content === 'string' ? response.content : '';
-
-    // 解析 JSON 数组
     try {
-      const suggestions = JSON.parse(text);
-      return { suggestions: Array.isArray(suggestions) ? suggestions : [] };
-    } catch {
-      // 解析失败则按行分割
-      const lines = text
-        .replace(/^\[|\]$/g, '')
-        .split(/[,\n]/)
-        .map((s) => s.replace(/^["']|["']$/g, '').trim())
-        .filter((s) => s.length > 2);
-      return { suggestions: lines.slice(0, 5) };
+      const llm = new ChatOpenAI({
+        modelName: 'qwen-turbo',
+        temperature: 0.8,
+        apiKey: this.configService.get<string>('dashscope.apiKey'),
+        configuration: {
+          baseURL: this.configService.get<string>('dashscope.baseURL'),
+        },
+      });
+
+      const response = await llm.invoke(prompt);
+      const text = typeof response.content === 'string' ? response.content : '';
+
+      // 解析 JSON 数组
+      try {
+        const suggestions = JSON.parse(text);
+        return { suggestions: Array.isArray(suggestions) ? suggestions : [] };
+      } catch {
+        // 解析失败则按行分割
+        const lines = text
+          .replace(/^\[|\]$/g, '')
+          .split(/[,\n]/)
+          .map((s) => s.replace(/^["']|["']$/g, '').trim())
+          .filter((s) => s.length > 2);
+        return { suggestions: lines.slice(0, 5) };
+      }
+    } catch (error) {
+      this.logger.error(
+        `建议生成失败 (userId=${userId}, resumes=${resumes.length}, jobs=${jobs.length})`,
+        error instanceof Error ? error.stack : error,
+      );
+      return { suggestions: [] };
     }
   }
 }
