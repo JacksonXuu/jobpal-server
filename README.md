@@ -4,7 +4,7 @@
 
 **求职助手（JobPal）** 是求职者的一站式求职工具，帮助用户管理简历、记录心仪岗位，并通过 AI 大模型对简历进行针对性优化，提供 AI 求职问答助手，提升面试机会。
 
-本项目是 JobPal 的后端 API 服务，为 [jobpal-app](https://gitee.com/JacksonXuu/jobpal-app)（用户端）和 [jobpal-manage](https://gitee.com/JacksonXuu/jobpal-manage)（管理端）提供统一接口。
+本项目是 JobPal 的后端 API 服务，为 [jobpal-app](https://github.com/JacksonXuu/jobpal-app)（用户端）和 [jobpal-manage](https://github.com/JacksonXuu/jobpal-manage)（管理端）提供统一接口。
 
 ## 一期功能
 
@@ -420,8 +420,8 @@ NestJS  MySQL  Redis
 
 | 项目 | 定位 | 技术栈 |
 |------|------|--------|
-| [jobpal-app](https://gitee.com/JacksonXuu/jobpal-app) | 用户端（移动端） | uni-app (Vue 3 + TypeScript) |
-| [jobpal-manage](https://gitee.com/JacksonXuu/jobpal-manage) | 管理端（PC 端） | React 18 + TypeScript + Ant Design 5 |
+| [jobpal-app](https://github.com/JacksonXuu/jobpal-app) | 用户端（移动端） | uni-app (Vue 3 + TypeScript) |
+| [jobpal-manage](https://github.com/JacksonXuu/jobpal-manage) | 管理端（PC 端） | React 18 + TypeScript + Ant Design 5 |
 
 ## 开发规范
 
