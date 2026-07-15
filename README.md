@@ -157,7 +157,7 @@ pnpm run test:cov
 
 ## API 概览
 
-**Base URL:** `https://api.jobpal.com/v1`
+**Base URL:** `https://jobpal.jacksonxu.cn/api`
 
 **统一响应格式：**
 
@@ -401,10 +401,12 @@ bash deploy.sh
 ### 部署架构
 
 ```
-Nginx (ECS, :80 / :443)
-  ├── jobpal.com        → 管理端静态文件
-  ├── api.jobpal.com    → proxy_pass → NestJS（本项目，:3000）
-  └── app.jobpal.com    → 用户端 H5 静态文件
+Nginx (ECS, :80/:443)
+  └── jobpal.jacksonxu.cn  → JobPal 项目
+        ├── /api/*   → proxy_pass → NestJS（本项目，:3000）
+        ├── /app/*   → 用户端 H5 静态文件
+        └── /manage/* → 管理端静态文件
+  └── me.jacksonxu.cn     → 个人门户
          │
   ┌──────┼──────┐
   ▼      ▼      ▼

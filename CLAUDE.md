@@ -129,7 +129,7 @@ jobpal-server/
 
 ## API 设计规范
 
-**Base URL:** `https://api.jobpal.com/v1`（`main.ts` 中通过 `app.setGlobalPrefix('v1')` 设置）
+**Base URL:** `https://jobpal.jacksonxu.cn/api`（Nginx 反代到 NestJS `:3000/v1/`）
 
 **统一成功响应：**
 ```json
@@ -409,9 +409,11 @@ bash deploy.sh
 ### 部署架构
 ```
 Nginx (ECS, :80/:443)
-  ├── jobpal.com        → 管理端静态文件
-  ├── api.jobpal.com    → proxy_pass → NestJS (:3000)
-  └── app.jobpal.com    → 用户端 H5 静态文件
+  └── jobpal.jacksonxu.cn  → JobPal 项目
+        ├── /api/*   → proxy_pass → NestJS (:3000)
+        ├── /app/*   → 用户端 H5 静态文件
+        └── /manage/* → 管理端静态文件
+  └── me.jacksonxu.cn     → 个人门户
          │
   ┌──────┼──────┐
   ▼      ▼      ▼
